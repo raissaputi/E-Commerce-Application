@@ -12,8 +12,12 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.RequestBody;
+
 
 import com.app.config.AppConstants;
+import com.app.exceptions.APIException;
+import com.app.payloads.AddressDTO;
 import com.app.payloads.OrderDTO;
 import com.app.payloads.OrderResponse;
 import com.app.services.OrderService;
@@ -29,8 +33,16 @@ public class OrderController {
 	public OrderService orderService;
 	
 	@PostMapping("/public/users/{email}/carts/{cartId}/payments/{paymentMethod}/order")
-	public ResponseEntity<OrderDTO> orderProducts(@PathVariable String email, @PathVariable Long cartId, @PathVariable String paymentMethod) {
-		OrderDTO order = orderService.placeOrder(email, cartId, paymentMethod);
+	public ResponseEntity<OrderDTO> orderProducts(@PathVariable String email, 
+													@PathVariable Long cartId, 
+													@PathVariable String paymentMethod,
+													@RequestBody AddressDTO addressDTO) {
+		
+		if (!paymentMethod.equalsIgnoreCase("CashOnDelivery")){
+			throw new APIException("Only Cash on Delivery");
+		}
+
+		OrderDTO order = orderService.placeOrder(email, cartId, paymentMethod, addressDTO);
 		
 		return new ResponseEntity<OrderDTO>(order, HttpStatus.CREATED);
 	}

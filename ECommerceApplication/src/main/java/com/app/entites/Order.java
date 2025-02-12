@@ -46,21 +46,21 @@ public class Order {
 	private Double totalAmount;
 	private String orderStatus;
 
-	@Column(nullable = false)
+	@Column
 	private String street;
 
-	@Column(nullable = false)
+	@Column
 	private String buildingName;
 
-	@Column(nullable = false)
+	@Column
 	private String city;
 
-	@Column(nullable = false)
+	@Column
 	private String state;
 
-	@Column(nullable = false)
+	@Column
 	private String country;
 
-	@Column(nullable = false)
+	@Column
 	private String pincode;
 }

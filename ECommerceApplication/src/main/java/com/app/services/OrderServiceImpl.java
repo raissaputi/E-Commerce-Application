@@ -21,6 +21,7 @@ import com.app.entites.Payment;
 import com.app.entites.Product;
 import com.app.exceptions.APIException;
 import com.app.exceptions.ResourceNotFoundException;
+import com.app.payloads.AddressDTO;
 import com.app.payloads.OrderDTO;
 import com.app.payloads.OrderItemDTO;
 import com.app.payloads.OrderResponse;
@@ -65,12 +66,16 @@ public class OrderServiceImpl implements OrderService {
 	public ModelMapper modelMapper;
 
 	@Override
-	public OrderDTO placeOrder(String email, Long cartId, String paymentMethod) {
+	public OrderDTO placeOrder(String email, Long cartId, String paymentMethod, AddressDTO addressDTO) {
 
 		Cart cart = cartRepo.findCartByEmailAndCartId(email, cartId);
 
 		if (cart == null) {
 			throw new ResourceNotFoundException("Cart", "cartId", cartId);
+		}
+
+		if (cart.getCartItems().isEmpty()) {
+			throw new APIException("Cart is empty");
 		}
 
 		Order order = new Order();
@@ -80,6 +85,15 @@ public class OrderServiceImpl implements OrderService {
 
 		order.setTotalAmount(cart.getTotalPrice());
 		order.setOrderStatus("Order Accepted !");
+		
+		// Simpan alamat dari AddressDTO
+		System.out.println(addressDTO);
+		order.setStreet(addressDTO.getStreet());
+		order.setBuildingName(addressDTO.getBuildingName());
+		order.setCity(addressDTO.getCity());
+		order.setState(addressDTO.getState());
+		order.setCountry(addressDTO.getCountry());
+		order.setPincode(addressDTO.getPincode());
 
 		Payment payment = new Payment();
 		payment.setOrder(order);
