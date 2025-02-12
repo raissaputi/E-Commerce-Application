@@ -45,4 +45,22 @@ public class Order {
 	
 	private Double totalAmount;
 	private String orderStatus;
+
+	@Column(nullable = false)
+	private String street;
+
+	@Column(nullable = false)
+	private String buildingName;
+
+	@Column(nullable = false)
+	private String city;
+
+	@Column(nullable = false)
+	private String state;
+
+	@Column(nullable = false)
+	private String country;
+
+	@Column(nullable = false)
+	private String pincode;
 }
