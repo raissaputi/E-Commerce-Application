@@ -21,11 +21,5 @@ public class OrderDTO {
 	private Double totalAmount;
 	private String orderStatus;
 
-	// Informasi alamat
-    private String street;
-    private String buildingName;
-    private String city;
-    private String state;
-    private String country;
-    private String pincode;
+    private AddressDTO address;
 }

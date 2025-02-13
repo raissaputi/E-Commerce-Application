@@ -13,6 +13,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
+import com.app.entites.Address;
 import com.app.entites.Cart;
 import com.app.entites.CartItem;
 import com.app.entites.Order;
@@ -25,6 +26,7 @@ import com.app.payloads.AddressDTO;
 import com.app.payloads.OrderDTO;
 import com.app.payloads.OrderItemDTO;
 import com.app.payloads.OrderResponse;
+import com.app.repositories.AddressRepo;
 import com.app.repositories.CartItemRepo;
 import com.app.repositories.CartRepo;
 import com.app.repositories.OrderItemRepo;
@@ -65,6 +67,9 @@ public class OrderServiceImpl implements OrderService {
 	@Autowired
 	public ModelMapper modelMapper;
 
+	@Autowired
+	public AddressRepo addressRepo;
+
 	@Override
 	public OrderDTO placeOrder(String email, Long cartId, String paymentMethod, AddressDTO addressDTO) {
 
@@ -78,6 +83,23 @@ public class OrderServiceImpl implements OrderService {
 			throw new APIException("Cart is empty");
 		}
 
+		Address address = addressRepo.findByCountryAndStateAndCityAndPincodeAndStreetAndBuildingName(
+			addressDTO.getCountry(), addressDTO.getState(), addressDTO.getCity(), 
+			addressDTO.getPincode(), addressDTO.getStreet(), addressDTO.getBuildingName()
+    	);
+
+		if (address == null) {
+			address = new Address();
+			address.setStreet(addressDTO.getStreet());
+			address.setBuildingName(addressDTO.getBuildingName());
+			address.setCity(addressDTO.getCity());
+			address.setState(addressDTO.getState());
+			address.setCountry(addressDTO.getCountry());
+			address.setPincode(addressDTO.getPincode());
+	
+			address = addressRepo.save(address);  // Simpan alamat baru
+		}
+	
 		Order order = new Order();
 
 		order.setEmail(email);
@@ -85,15 +107,7 @@ public class OrderServiceImpl implements OrderService {
 
 		order.setTotalAmount(cart.getTotalPrice());
 		order.setOrderStatus("Order Accepted !");
-		
-		// Simpan alamat dari AddressDTO
-		System.out.println(addressDTO);
-		order.setStreet(addressDTO.getStreet());
-		order.setBuildingName(addressDTO.getBuildingName());
-		order.setCity(addressDTO.getCity());
-		order.setState(addressDTO.getState());
-		order.setCountry(addressDTO.getCountry());
-		order.setPincode(addressDTO.getPincode());
+		order.setAddress(address);
 
 		Payment payment = new Payment();
 		payment.setOrder(order);
@@ -138,7 +152,10 @@ public class OrderServiceImpl implements OrderService {
 		});
 
 		OrderDTO orderDTO = modelMapper.map(savedOrder, OrderDTO.class);
-		
+
+		AddressDTO saveAddressDTO = modelMapper.map(savedOrder.getAddress(), AddressDTO.class);
+		orderDTO.setAddress(saveAddressDTO);
+
 		orderItems.forEach(item -> orderDTO.getOrderItems().add(modelMapper.map(item, OrderItemDTO.class)));
 
 		return orderDTO;
