@@ -55,4 +55,7 @@ public class Product {
 	@OneToMany(mappedBy = "product", cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	private List<OrderItem> orderItems = new ArrayList<>();
 
+	@ManyToOne
+	@JoinColumn(name = "brand_id", nullable = false)
+	private Brand brand;
 }

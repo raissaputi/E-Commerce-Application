@@ -14,6 +14,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.app.entites.Brand;
 import com.app.entites.Cart;
 import com.app.entites.Category;
 import com.app.entites.Product;
@@ -22,6 +23,7 @@ import com.app.exceptions.ResourceNotFoundException;
 import com.app.payloads.CartDTO;
 import com.app.payloads.ProductDTO;
 import com.app.payloads.ProductResponse;
+import com.app.repositories.BrandRepo;
 import com.app.repositories.CartRepo;
 import com.app.repositories.CategoryRepo;
 import com.app.repositories.ProductRepo;
@@ -39,6 +41,9 @@ public class ProductServiceImpl implements ProductService {
 	private CategoryRepo categoryRepo;
 
 	@Autowired
+	private BrandRepo brandRepo;
+
+	@Autowired
 	private CartRepo cartRepo;
 
 	@Autowired
@@ -54,19 +59,21 @@ public class ProductServiceImpl implements ProductService {
 	private String path;
 
 	@Override
-	public ProductDTO addProduct(Long categoryId, Product product) {
+	public ProductDTO addProduct(Long categoryId, Long brandId, Product product) {
 
 		Category category = categoryRepo.findById(categoryId)
 				.orElseThrow(() -> new ResourceNotFoundException("Category", "categoryId", categoryId));
 
+		Brand brand = brandRepo.findById(brandId)
+				.orElseThrow(() -> new ResourceNotFoundException("Brand", "brandId", brandId));
+
 		boolean isProductNotPresent = true;
 
-		List<Product> products = category.getProducts();
+		Page<Product> products = productRepo.findByCategoryAndBrand(category, brand, PageRequest.of(0, 10));
 
-		for (int i = 0; i < products.size(); i++) {
-			if (products.get(i).getProductName().equals(product.getProductName())
-					&& products.get(i).getDescription().equals(product.getDescription())) {
-
+		for (Product existingProduct : products) {
+			if (existingProduct.getProductName().equals(product.getProductName())
+					&& existingProduct.getDescription().equals(product.getDescription())) {
 				isProductNotPresent = false;
 				break;
 			}
@@ -74,17 +81,16 @@ public class ProductServiceImpl implements ProductService {
 
 		if (isProductNotPresent) {
 			product.setImage("default.png");
-
 			product.setCategory(category);
+			product.setBrand(brand);
 
 			double specialPrice = product.getPrice() - ((product.getDiscount() * 0.01) * product.getPrice());
 			product.setSpecialPrice(specialPrice);
 
 			Product savedProduct = productRepo.save(product);
-
 			return modelMapper.map(savedProduct, ProductDTO.class);
 		} else {
-			throw new APIException("Product already exists !!!");
+			throw new APIException("Product already exists with the same name and description !!!");
 		}
 	}
 
@@ -170,6 +176,37 @@ public class ProductServiceImpl implements ProductService {
 
 		ProductResponse productResponse = new ProductResponse();
 
+		productResponse.setContent(productDTOs);
+		productResponse.setPageNumber(pageProducts.getNumber());
+		productResponse.setPageSize(pageProducts.getSize());
+		productResponse.setTotalElements(pageProducts.getTotalElements());
+		productResponse.setTotalPages(pageProducts.getTotalPages());
+		productResponse.setLastPage(pageProducts.isLast());
+
+		return productResponse;
+	}
+
+	@Override
+	public ProductResponse searchByBrand(String brandName, Integer pageNumber, Integer pageSize, String sortBy, String sortOrder) {
+
+		Sort sortByAndOrder = sortOrder.equalsIgnoreCase("asc") ? Sort.by(sortBy).ascending()
+				: Sort.by(sortBy).descending();
+
+		Pageable pageDetails = PageRequest.of(pageNumber, pageSize, sortByAndOrder);
+
+		Page<Product> pageProducts = productRepo.findByBrand_BrandName(brandName, pageDetails); // Query di ProductRepo
+
+		List<Product> products = pageProducts.getContent();
+
+		if (products.isEmpty()) {
+			throw new APIException("No products found for brand: " + brandName);
+		}
+
+		List<ProductDTO> productDTOs = products.stream()
+				.map(product -> modelMapper.map(product, ProductDTO.class))
+				.collect(Collectors.toList());
+
+		ProductResponse productResponse = new ProductResponse();
 		productResponse.setContent(productDTOs);
 		productResponse.setPageNumber(pageProducts.getNumber());
 		productResponse.setPageSize(pageProducts.getSize());

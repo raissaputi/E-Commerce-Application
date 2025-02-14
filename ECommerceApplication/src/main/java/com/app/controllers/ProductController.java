@@ -33,14 +33,17 @@ public class ProductController {
 	@Autowired
 	private ProductService productService;
 
-	@PostMapping("/admin/categories/{categoryId}/product")
-	public ResponseEntity<ProductDTO> addProduct(@Valid @RequestBody Product product, @PathVariable Long categoryId) {
-
-		ProductDTO savedProduct = productService.addProduct(categoryId, product);
-
-		return new ResponseEntity<ProductDTO>(savedProduct, HttpStatus.CREATED);
+	@PostMapping("/admin/categories/{categoryId}/brands/{brandId}/product")
+	public ResponseEntity<ProductDTO> addProduct(
+			@Valid @RequestBody Product product,
+			@PathVariable Long categoryId,
+			@PathVariable Long brandId) {
+	
+		ProductDTO savedProduct = productService.addProduct(categoryId, brandId, product);
+	
+		return new ResponseEntity<>(savedProduct, HttpStatus.CREATED);
 	}
-
+	
 	@GetMapping("/public/products")
 	public ResponseEntity<ProductResponse> getAllProducts(
 			@RequestParam(name = "pageNumber", defaultValue = AppConstants.PAGE_NUMBER, required = false) Integer pageNumber,
@@ -78,6 +81,16 @@ public class ProductController {
 
 		return new ResponseEntity<ProductResponse>(productResponse, HttpStatus.FOUND);
 	}
+
+	@GetMapping("/public/products/brand/{brandName}")
+    public ResponseEntity<ProductResponse> getProductsByBrand(@PathVariable String brandName,
+            @RequestParam(name = "pageNumber", defaultValue = AppConstants.PAGE_NUMBER, required = false) Integer pageNumber,
+            @RequestParam(name = "pageSize", defaultValue = AppConstants.PAGE_SIZE, required = false) Integer pageSize,
+            @RequestParam(name = "sortBy", defaultValue = AppConstants.SORT_PRODUCTS_BY, required = false) String sortBy,
+            @RequestParam(name = "sortOrder", defaultValue = AppConstants.SORT_DIR, required = false) String sortOrder) {
+        ProductResponse productResponse = productService.searchByBrand(brandName, pageNumber, pageSize, sortBy, sortOrder);
+        return new ResponseEntity<>(productResponse, HttpStatus.FOUND);
+    }
 
 	@PutMapping("/admin/products/{productId}")
 	public ResponseEntity<ProductDTO> updateProduct(@RequestBody Product product,
