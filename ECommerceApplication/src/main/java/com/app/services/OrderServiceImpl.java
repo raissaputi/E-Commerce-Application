@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 
 import com.app.entites.Cart;
 import com.app.entites.CartItem;
+import com.app.entites.Coupon;
 import com.app.entites.Order;
 import com.app.entites.OrderItem;
 import com.app.entites.Payment;
@@ -26,6 +27,7 @@ import com.app.payloads.OrderItemDTO;
 import com.app.payloads.OrderResponse;
 import com.app.repositories.CartItemRepo;
 import com.app.repositories.CartRepo;
+import com.app.repositories.CouponRepo;
 import com.app.repositories.OrderItemRepo;
 import com.app.repositories.OrderRepo;
 import com.app.repositories.PaymentRepo;
@@ -56,6 +58,9 @@ public class OrderServiceImpl implements OrderService {
 	public CartItemRepo cartItemRepo;
 
 	@Autowired
+	public CouponRepo couponRepo;
+
+	@Autowired
 	public UserService userService;
 
 	@Autowired
@@ -65,84 +70,85 @@ public class OrderServiceImpl implements OrderService {
 	public ModelMapper modelMapper;
 
 	@Override
-	public OrderDTO placeOrder(String email, Long cartId, String paymentMethod) {
-
+	public OrderDTO placeOrder(String email, Long cartId, String paymentMethod, String couponCode) {
 		Cart cart = cartRepo.findCartByEmailAndCartId(email, cartId);
 
 		if (cart == null) {
 			throw new ResourceNotFoundException("Cart", "cartId", cartId);
 		}
 
-		Order order = new Order();
+		double totalAmount = cart.getTotalPrice();
+		// Apply coupon if provided
+		if (couponCode != null && !couponCode.isEmpty()) {
+			Coupon coupon = couponRepo.findByCode(couponCode);
+			if (coupon == null || !coupon.getActive()) {
+				throw new APIException("Invalid or inactive coupon code: " + couponCode);
+			}
+			double hargaCoupon = totalAmount * coupon.getDiscountAmount()/100;
+			totalAmount -= hargaCoupon;
+			if (totalAmount < 0) {
+				totalAmount = 0;  // Ensure total amount is not negative
+			}
+		}
 
+		Order order = new Order();
 		order.setEmail(email);
 		order.setOrderDate(LocalDate.now());
-
-		order.setTotalAmount(cart.getTotalPrice());
-		order.setOrderStatus("Order Accepted !");
+		order.setTotalAmount(totalAmount);
+		order.setOrderStatus("Order Accepted!");
 
 		Payment payment = new Payment();
 		payment.setOrder(order);
 		payment.setPaymentMethod(paymentMethod);
 
 		payment = paymentRepo.save(payment);
-
 		order.setPayment(payment);
-
 		Order savedOrder = orderRepo.save(order);
 
 		List<CartItem> cartItems = cart.getCartItems();
-
-		if (cartItems.size() == 0) {
+		if (cartItems.isEmpty()) {
 			throw new APIException("Cart is empty");
 		}
 
 		List<OrderItem> orderItems = new ArrayList<>();
-
 		for (CartItem cartItem : cartItems) {
 			OrderItem orderItem = new OrderItem();
-
 			orderItem.setProduct(cartItem.getProduct());
 			orderItem.setQuantity(cartItem.getQuantity());
 			orderItem.setDiscount(cartItem.getDiscount());
 			orderItem.setOrderedProductPrice(cartItem.getProductPrice());
 			orderItem.setOrder(savedOrder);
-
 			orderItems.add(orderItem);
 		}
 
-		orderItems = orderItemRepo.saveAll(orderItems);
+		orderItemRepo.saveAll(orderItems);
 
 		cart.getCartItems().forEach(item -> {
 			int quantity = item.getQuantity();
-
 			Product product = item.getProduct();
-
 			cartService.deleteProductFromCart(cartId, item.getProduct().getProductId());
-
 			product.setQuantity(product.getQuantity() - quantity);
 		});
 
 		OrderDTO orderDTO = modelMapper.map(savedOrder, OrderDTO.class);
-		
 		orderItems.forEach(item -> orderDTO.getOrderItems().add(modelMapper.map(item, OrderItemDTO.class)));
 
 		return orderDTO;
 	}
 
-	@Override
-	public List<OrderDTO> getOrdersByUser(String email) {
-		List<Order> orders = orderRepo.findAllByEmail(email);
+		@Override
+		public List<OrderDTO> getOrdersByUser(String email) {
+			List<Order> orders = orderRepo.findAllByEmail(email);
 
-		List<OrderDTO> orderDTOs = orders.stream().map(order -> modelMapper.map(order, OrderDTO.class))
-				.collect(Collectors.toList());
+			List<OrderDTO> orderDTOs = orders.stream().map(order -> modelMapper.map(order, OrderDTO.class))
+					.collect(Collectors.toList());
 
-		if (orderDTOs.size() == 0) {
-			throw new APIException("No orders placed yet by the user with email: " + email);
+			if (orderDTOs.size() == 0) {
+				throw new APIException("No orders placed yet by the user with email: " + email);
+			}
+
+			return orderDTOs;
 		}
-
-		return orderDTOs;
-	}
 
 	@Override
 	public OrderDTO getOrder(String email, Long orderId) {
